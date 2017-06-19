@@ -25,6 +25,8 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
 import org.jetbrains.kotlin.codegen.CompilationException
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.addKotlinSourceRoot
+import org.jetbrains.kotlin.daemon.TestMessageCollector
+import org.jetbrains.kotlin.daemon.assertHasMessage
 import org.jetbrains.kotlin.daemon.toFile
 import org.jetbrains.kotlin.script.InvalidScriptResolverAnnotation
 import org.jetbrains.kotlin.script.KotlinScriptDefinition
@@ -237,6 +239,17 @@ class ScriptTemplateTest {
     }
 
     @Test
+    fun testScriptErrorReporting() {
+        val messageCollector = TestMessageCollector()
+        compileScript("fib.kts", ScriptReportingErrors::class, messageCollector = messageCollector)
+
+        messageCollector.assertHasMessage("error", desiredSeverity = CompilerMessageSeverity.ERROR)
+        messageCollector.assertHasMessage("warning", desiredSeverity = CompilerMessageSeverity.WARNING)
+        messageCollector.assertHasMessage("info", desiredSeverity = CompilerMessageSeverity.INFO)
+        messageCollector.assertHasMessage("debug", desiredSeverity = CompilerMessageSeverity.LOGGING)
+    }
+
+    @Test
     fun testSmokeScriptException() {
         val aClass = compileScript("smoke_exception.kts", ScriptWithArrayParam::class)
         Assert.assertNotNull(aClass)
@@ -270,21 +283,18 @@ class ScriptTemplateTest {
             scriptTemplate: KClass<out Any>,
             environment: Map<String, Any?>? = null,
             runIsolated: Boolean = true,
-            suppressOutput: Boolean = false,
+            messageCollector: MessageCollector = PrintingMessageCollector(System.err, MessageRenderer.PLAIN_FULL_PATHS, false),
             includeKotlinRuntime: Boolean = true): Class<*>? =
-            compileScriptImpl("compiler/testData/script/" + scriptPath, KotlinScriptDefinitionFromAnnotatedTemplate(scriptTemplate, null, null, environment), runIsolated, suppressOutput, includeKotlinRuntime)
+            compileScriptImpl("compiler/testData/script/" + scriptPath, KotlinScriptDefinitionFromAnnotatedTemplate(scriptTemplate, null, null, environment), runIsolated, messageCollector, includeKotlinRuntime)
 
     private fun compileScriptImpl(
             scriptPath: String,
             scriptDefinition: KotlinScriptDefinition,
             runIsolated: Boolean,
-            suppressOutput: Boolean,
+            messageCollector: MessageCollector,
             includeKotlinRuntime: Boolean): Class<*>?
     {
         val paths = PathUtil.getKotlinPathsForDistDirectory()
-        val messageCollector =
-                if (suppressOutput) MessageCollector.NONE
-                else PrintingMessageCollector(System.err, MessageRenderer.PLAIN_FULL_PATHS, false)
 
         val rootDisposable = Disposer.newDisposable()
         try {
@@ -337,7 +347,7 @@ open class TestKotlinScriptDummyDependenciesResolver : DependenciesResolver {
             ?: emptyList()
 }
 
-class TestKotlinScriptDependenciesResolver : TestKotlinScriptDummyDependenciesResolver() {
+open class TestKotlinScriptDependenciesResolver : TestKotlinScriptDummyDependenciesResolver() {
 
     private val kotlinPaths by lazy { PathUtil.getKotlinPathsForCompiler() }
 
@@ -364,6 +374,21 @@ class TestKotlinScriptDependenciesResolver : TestKotlinScriptDummyDependenciesRe
             classpath = classpathFromClassloader() + cp,
             imports = listOf("org.jetbrains.kotlin.scripts.DependsOn", "org.jetbrains.kotlin.scripts.DependsOnTwo")
         ).asSuccess()
+    }
+}
+
+class ErrorReportingResolver : TestKotlinScriptDependenciesResolver() {
+    override fun resolve(
+            script: ScriptContents,
+            environment: Map<String, Any?>?,
+            report: (ScriptDependenciesResolver.ReportSeverity, String, ScriptContents.Position?) -> Unit,
+            previousDependencies: KotlinScriptExternalDependencies?
+    ): Future<KotlinScriptExternalDependencies?> {
+        report(ScriptDependenciesResolver.ReportSeverity.ERROR, "error", null)
+        report(ScriptDependenciesResolver.ReportSeverity.WARNING, "warning", ScriptContents.Position(1, 0))
+        report(ScriptDependenciesResolver.ReportSeverity.INFO, "info", ScriptContents.Position(2, 0))
+        report(ScriptDependenciesResolver.ReportSeverity.DEBUG, "debug", ScriptContents.Position(3, 0))
+        return super.resolve(script, environment, report, previousDependencies)
     }
 }
 
@@ -417,6 +442,9 @@ abstract class ScriptWithNullableProjection(val param: Array<String?>)
 
 @ScriptTemplateDefinition(resolver = TestKotlinScriptDependenciesResolver::class)
 abstract class ScriptWithArray2DParam(val param: Array<Array<in String>>)
+
+@ScriptTemplateDefinition(resolver = ErrorReportingResolver::class)
+abstract class ScriptReportingErrors(val num: Int)
 
 @Target(AnnotationTarget.FILE)
 @Retention(AnnotationRetention.RUNTIME)

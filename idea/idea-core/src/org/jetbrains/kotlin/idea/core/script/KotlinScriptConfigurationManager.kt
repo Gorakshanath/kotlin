@@ -234,11 +234,11 @@ class KotlinScriptConfigurationManager(
                     getScriptContents(scriptDef, file),
                     (scriptDef as? KotlinScriptDefinitionFromAnnotatedTemplate)?.environment.orEmpty()
             )
-            // TODO_R: process failure appropriately
             println(result.toString() + "deps=${result.dependencies?.classpath}\nreports=${result.reports}")
             cacheLock.read {
                 val lastTimeStamp = cache[path]?.requestInProgress?.timeStamp
                 if (lastTimeStamp == currentTimeStamp) {
+                    ServiceManager.getService(project, ScriptReportSink::class.java)?.attachReports(file, result.reports)
                     if (cacheSync(result.dependencies ?: ScriptDependencies.Empty, oldDataAndRequest?.dependencies, path, file)) {
                         invalidateLocalCaches()
                         notifyRootsChanged()
