@@ -23,13 +23,14 @@ import org.jetbrains.kotlin.js.backend.ast.metadata.exportedPackage
 import org.jetbrains.kotlin.js.backend.ast.metadata.exportedTag
 import org.jetbrains.kotlin.js.translate.context.Namer
 import org.jetbrains.kotlin.js.translate.utils.JsAstUtils
+import org.jetbrains.kotlin.js.translate.utils.createPrototypeStatements
 import org.jetbrains.kotlin.js.translate.utils.definePackageAlias
 
 class Merger(private val rootFunction: JsFunction, val internalModuleName: JsName, val module: ModuleDescriptor) {
     // Maps unique signature (see generateSignature) to names
     private val nameTable = mutableMapOf<String, JsName>()
     private val importedModuleTable = mutableMapOf<JsImportedModuleKey, JsName>()
-    private val importBlock = JsGlobalBlock()
+    val importBlock = JsGlobalBlock()
     private val declarationBlock = JsGlobalBlock()
     private val initializerBlock = JsGlobalBlock()
     private val exportBlock = JsGlobalBlock()
@@ -193,16 +194,7 @@ class Merger(private val rootFunction: JsFunction, val internalModuleName: JsNam
 
         addClassPrototypes(superName, visited, statements)
 
-        val superclassRef = superName.makeRef()
-        val superPrototype = JsAstUtils.prototypeOf(superclassRef)
-        val superPrototypeInstance = JsInvocation(JsNameRef("create", "Object"), superPrototype)
-
-        val classRef = name.makeRef()
-        val prototype = JsAstUtils.prototypeOf(classRef)
-        statements += JsAstUtils.assignment(prototype, superPrototypeInstance).makeStmt()
-
-        val constructorRef = JsNameRef("constructor", prototype.deepCopy())
-        statements += JsAstUtils.assignment(constructorRef, classRef.deepCopy()).makeStmt()
+        statements += createPrototypeStatements(superName, name)
     }
 
     private fun addClassPostDeclarations(statements: MutableList<JsStatement>) {
