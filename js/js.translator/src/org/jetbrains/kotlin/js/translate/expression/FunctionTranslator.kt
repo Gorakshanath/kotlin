@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.psi.KtDeclarationWithBody
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.hasDefaultValue
 import org.jetbrains.kotlin.resolve.descriptorUtil.isEffectivelyPublicApi
+import org.jetbrains.kotlin.resolve.source.getPsi
 
 fun TranslationContext.translateAndAliasParameters(
         descriptor: FunctionDescriptor,
@@ -98,9 +99,10 @@ fun TranslationContext.translateFunction(declaration: KtDeclarationWithBody, fun
 
 fun TranslationContext.wrapWithInlineMetadata(function: JsFunction, descriptor: FunctionDescriptor): JsExpression {
     val isInline = shouldBeInlined(descriptor, this)
+    val sourceInfo = descriptor.source.getPsi()
     return if (isInline && descriptor.isEffectivelyPublicApi) {
         val metadata = InlineMetadata.compose(function, descriptor, this)
-        metadata.functionWithMetadata
+        metadata.functionWithMetadata(sourceInfo)
     }
     else {
         val block = if (isInline) {
@@ -112,7 +114,7 @@ fun TranslationContext.wrapWithInlineMetadata(function: JsFunction, descriptor: 
         else {
             null
         }
-        if (block != null) InlineMetadata.wrapFunction(FunctionWithWrapper(function, block)) else function
+        if (block != null) InlineMetadata.wrapFunction(FunctionWithWrapper(function, block), sourceInfo) else function
     }
 }
 
