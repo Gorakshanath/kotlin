@@ -42,7 +42,10 @@ import org.jetbrains.kotlin.js.dce.DeadCodeElimination
 import org.jetbrains.kotlin.js.dce.InputFile
 import org.jetbrains.kotlin.js.facade.*
 import org.jetbrains.kotlin.js.parser.parse
-import org.jetbrains.kotlin.js.parser.sourcemaps.*
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapError
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapLocationRemapper
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapParser
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapSuccess
 import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver
 import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.test.utils.*
@@ -161,7 +164,7 @@ abstract class BasicBoxTest(
 
             val expectedReachableNodesMatcher = EXPECTED_REACHABLE_NODES.matcher(fileContent)
             val expectedReachableNodesFound = expectedReachableNodesMatcher.find()
-            val skipMinification = true //System.getProperty("kotlin.js.skipMinificationTest", "false").toBoolean()
+            val skipMinification = System.getProperty("kotlin.js.skipMinificationTest", "false").toBoolean()
             if (!skipMinification &&
                 (runMinifierByDefault || expectedReachableNodesFound) &&
                 !SKIP_MINIFICATION.matcher(fileContent).find()
@@ -404,7 +407,7 @@ abstract class BasicBoxTest(
         }
 
         processJsProgram(translationResult.program, units.filterIsInstance<TranslationUnit.SourceFile>().map { it.file })
-        //checkSourceMap(outputFile, translationResult.program)
+        checkSourceMap(outputFile, translationResult.program)
     }
 
     protected fun processJsProgram(program: JsProgram, psiFiles: List<KtFile>) {
