@@ -38,8 +38,8 @@ import org.jetbrains.kotlin.utils.identity
 
 class ClassModelGenerator(val context: TranslationContext) {
     fun generateClassModel(descriptor: ClassDescriptor): JsClassModel {
-        val superName = descriptor.getSuperClassNotAny()?.let { context.getInnerNameForDescriptor(it) }
-        val model = JsClassModel(context.getInnerNameForDescriptor(descriptor), superName)
+        val superName = descriptor.getSuperClassNotAny()?.let { context.getInlineableInnerNameForDescriptor(it) }
+        val model = JsClassModel(context.getInlineableInnerNameForDescriptor(descriptor), superName)
         if (descriptor.kind != ClassKind.ANNOTATION_CLASS && !AnnotationsUtils.isNativeObject(descriptor)) {
             copyDefaultMembers(descriptor, model)
             generateBridgeMethods(descriptor, model)
@@ -256,8 +256,8 @@ class ClassModelGenerator(val context: TranslationContext) {
     ) {
         if (!context.isFromCurrentModule(targetDescriptor)) return
 
-        val targetPrototype = prototypeOf(pureFqn(context.getInnerNameForDescriptor(targetDescriptor), null))
-        val sourcePrototype = prototypeOf(pureFqn(context.getInnerNameForDescriptor(sourceDescriptor), null))
+        val targetPrototype = prototypeOf(pureFqn(context.getInlineableInnerNameForDescriptor(targetDescriptor), null))
+        val sourcePrototype = prototypeOf(pureFqn(context.getInlineableInnerNameForDescriptor(sourceDescriptor), null))
         val targetFunction = JsNameRef(targetName, targetPrototype)
         val sourceFunction = JsNameRef(sourceName, sourcePrototype)
         block.statements += JsAstUtils.assignment(targetFunction, sourceFunction).makeStmt()
@@ -271,8 +271,8 @@ class ClassModelGenerator(val context: TranslationContext) {
     ) {
         if (!context.isFromCurrentModule(targetDescriptor)) return
 
-        val targetPrototype = prototypeOf(pureFqn(context.getInnerNameForDescriptor(targetDescriptor), null))
-        val sourcePrototype = prototypeOf(pureFqn(context.getInnerNameForDescriptor(sourceDescriptor), null))
+        val targetPrototype = prototypeOf(pureFqn(context.getInlineableInnerNameForDescriptor(targetDescriptor), null))
+        val sourcePrototype = prototypeOf(pureFqn(context.getInlineableInnerNameForDescriptor(sourceDescriptor), null))
         val nameLiteral = JsStringLiteral(name)
 
         val getPropertyDescriptor = JsInvocation(JsNameRef("getOwnPropertyDescriptor", "Object"), sourcePrototype, nameLiteral)
